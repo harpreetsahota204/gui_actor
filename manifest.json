@@ -1,0 +1,64 @@
+{
+    "name": "GUI-Actor",
+    "url": "https://github.com/harpreetsahota204/gui_actor",
+    "models": [
+        {
+            "base_name": "microsoft/GUI-Actor-3B-Qwen2.5-VL",
+            "base_filename":"GUI-Actor-3B-Qwen2.5-VL",
+            "author": "Microsoft",
+            "license": "MIT",
+            "source": "https://huggingface.co/microsoft/GUI-Actor-3B-Qwen2.5-VL",
+            "description": "GUI-Actor is Coordinate-Free Visual Grounding for GUI Agents",
+            "tags": [
+                "keypoints",
+                "visual-agent"
+            ],
+            "date_added": "2025-06-24",
+            "requirements": {
+                "packages": [
+                    "huggingface-hub",
+                    "transformers", 
+                    "torch", 
+                    "torchvision", 
+                    "qwen-vl-utils", 
+                    "accelerate"
+                ],
+                "cpu": {
+                    "support": true
+                },
+                "gpu": {
+                    "support": true
+                }
+            }
+        },        
+        {
+            "base_name": "microsoft/GUI-Actor-7B-Qwen2.5-VL",
+            "base_filename":"GUI-Actor-7B-Qwen2.5-VL",
+            "author": "Microsoft",
+            "license": "MIT",
+            "source": "https://huggingface.co/microsoft/GUI-Actor-7B-Qwen2.5-VL",
+            "description": "GUI-Actor is Coordinate-Free Visual Grounding for GUI Agents",
+            "tags": [
+                "keypoints",
+                "visual-agent"
+            ],
+            "date_added": "2025-06-24",
+            "requirements": {
+                "packages": [
+                    "huggingface-hub",
+                    "transformers", 
+                    "torch", 
+                    "torchvision", 
+                    "qwen-vl-utils", 
+                    "accelerate"
+                ],
+                "cpu": {
+                    "support": true
+                },
+                "gpu": {
+                    "support": true
+                }
+            }
+        }
+    ]
+}
