@@ -225,12 +225,26 @@ class GUIActorModel(SamplesMixin, Model):
             raise ValueError("No prompt provided.")
         
         messages = [
-            {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
+            {
+                "role": "system", 
+                "content": [  
+                    {
+                        "type": "text",
+                        "text": DEFAULT_SYSTEM_PROMPT
+                    }
+                ]
+            },
             {
                 "role": "user", 
                 "content": [
-                    {"type": "text", "text": prompt},  # Use local prompt
-                    {"image": sample.filepath if sample else image}
+                    {
+                        "type": "image", 
+                        "image": sample.filepath if sample else image
+                    },
+                    {
+                        "type": "text", 
+                        "text": prompt
+                    },
                 ]
             }
         ]
