@@ -22,11 +22,13 @@ class ForceFollowTokensLogitsProcessor(LogitsProcessor):
     Whenever token_a_id is generated, enqueue the forced_sequence (e.g. [B, C]).
     As long as forced tokens remain in the queue, force them in the output.
     """
-    def __init__(self, token_a_id, forced_sequence=[DEFAULT_POINTER_PAD_TOKEN, DEFAULT_POINTER_END_TOKEN]):
+    def __init__(self, token_a_id, forced_sequence=None):
         super().__init__()
         self.token_a_id = token_a_id
-        self.forced_sequence = forced_sequence  # list of token IDs, e.g. [B_id, C_id]
-        self.force_queue = []  # holds the tokens we still need to force
+        if forced_sequence is None:
+            forced_sequence = [DEFAULT_POINTER_PAD_TOKEN, DEFAULT_POINTER_END_TOKEN]
+        self.forced_sequence = forced_sequence
+        self.force_queue = []
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         """
