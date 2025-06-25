@@ -5,6 +5,7 @@ from PIL import Image
 from typing import Dict, Any, List, Union, Optional
 import cv2
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 import numpy as np
 import torch
@@ -111,6 +112,8 @@ class GUIActorModel(SamplesMixin, Model):
     def _save_attention_heatmap(self, pred: Dict[str, Any], image: Image.Image, sample=None):
         """Save attention heatmap as PNG alongside the original image.
         
+        Uses the same visualization approach as described in the GUI-Actor paper.
+        
         Args:
             pred: Model prediction dictionary containing attention scores and dimensions
             image: Original PIL Image
@@ -121,28 +124,28 @@ class GUIActorModel(SamplesMixin, Model):
             return
             
         try:
-            # Reshape attention scores to 2D grid
-            attn_scores_1d = np.array(pred["attn_scores"][0])  # Shape: (n_height * n_width,)
-            attention_2d = attn_scores_1d.reshape(pred["n_height"], pred["n_width"])
+            # Extract dimensions
+            width, height = image.size
+            W, H = pred["n_width"], pred["n_height"]  # attention map size
             
-            # Interpolate to original image resolution
-            original_width, original_height = image.size
-            attention_resized = cv2.resize(
-                attention_2d, 
-                (original_width, original_height), 
-                interpolation=cv2.INTER_CUBIC
+            # Reshape attention scores to 2D grid (following paper's approach)
+            scores = np.array(pred["attn_scores"][0]).reshape(H, W)
+            
+            # Normalize the attention weights for coherent visualization
+            scores_norm = (scores - scores.min()) / (scores.max() - scores.min())
+            
+            # Resize the attention map to match the image size using PIL BILINEAR
+            score_map = Image.fromarray((scores_norm * 255).astype(np.uint8)).resize(
+                (width, height), resample=Image.BILINEAR
             )
             
-            # Normalize to 0-1 range
-            attention_normalized = (attention_resized - attention_resized.min()) / (attention_resized.max() - attention_resized.min())
+            # Apply jet colormap (following paper's approach)
+            colormap = plt.get_cmap('jet')
+            colored_score_map = colormap(np.array(score_map) / 255.0)  # returns RGBA
+            colored_score_map = (colored_score_map[:, :, :3] * 255).astype(np.uint8)  # Remove alpha, convert to uint8
+            colored_overlay = Image.fromarray(colored_score_map)
             
-            # Apply jet colormap
-            attention_colored = cv2.applyColorMap(
-                (attention_normalized * 255).astype(np.uint8), 
-                cv2.COLORMAP_JET
-            )
-            
-            # Generate heatmap filename
+            # Generate filename
             if sample and sample.filepath:
                 original_path = Path(sample.filepath)
                 heatmap_path = original_path.parent / f"{original_path.stem}_attention.png"
@@ -150,12 +153,13 @@ class GUIActorModel(SamplesMixin, Model):
                 # Fallback if no sample filepath
                 heatmap_path = Path("attention_heatmap.png")
             
-            # Save colored heatmap as PNG
-            cv2.imwrite(str(heatmap_path), attention_colored)
+            # Save heatmap
+            colored_overlay.save(str(heatmap_path))
             logger.info(f"Saved attention heatmap to: {heatmap_path}")
             
         except Exception as e:
             logger.error(f"Error saving attention heatmap: {e}")
+
 
 
     def _to_keypoints(self, pred: Dict[str, Any], image_width: int, image_height: int) -> fo.Keypoints:
