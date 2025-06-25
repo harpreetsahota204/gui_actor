@@ -62,19 +62,11 @@ class GUIActorModel(SamplesMixin, Model):
         if self.device == "cuda":
             model_kwargs["torch_dtype"] = torch.bfloat16
 
-        if self.torch_dtype:
-            self.model = Qwen2_5_VLForConditionalGenerationWithPointer.from_pretrained(
-                model_path,
-                trust_remote_code=True,
-                **model_kwargs
-            )
-        else:
-            self.model = Qwen2_5_VLForConditionalGenerationWithPointer.from_pretrained(
-                model_path,
-                trust_remote_code=True,
-                device_map=self.device,
-            )
-        
+        self.model = Qwen2_5_VLForConditionalGenerationWithPointer.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            **model_kwargs
+        )
         logger.info("Loading processor")
 
         self.processor = AutoProcessor.from_pretrained(
