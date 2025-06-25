@@ -2,6 +2,8 @@
 
 A FiftyOne integration for Microsoft's GUI-Actor vision-language models, enabling GUI automation and visual interface analysis with rich attention visualization.
 
+<img src ="gui-actor-hq.gif">
+
 ## Overview
 
 GUI-Actor is a multimodal foundation model designed for GUI automation tasks. This integration brings GUI-Actor's capabilities to FiftyOne, allowing you to:
