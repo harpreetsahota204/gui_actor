@@ -215,6 +215,9 @@ def inference(conversation, model, tokenizer, data_processor, logits_processor=N
             ]
         )
     
+    # Reset the force_queue to ensure clean state
+    logits_processor.force_queue = []
+    
     assiatant_starter = "" if not use_placeholder else "<|im_start|>assistant<|recipient|>os\npyautogui.click(<|pointer_start|><|pointer_pad|><|pointer_end|>)"
 
     pred = {
