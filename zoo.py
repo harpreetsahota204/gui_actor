@@ -40,7 +40,6 @@ class GUIActorModel(SamplesMixin, Model):
         prompt: str = None,
         **kwargs
     ):
-        print(f"=== INIT DEBUG: Creating GUIActorModel with prompt: '{prompt}' ===")
         self._fields = {}
         
         self.model_path = model_path
@@ -80,27 +79,21 @@ class GUIActorModel(SamplesMixin, Model):
         self.tokenizer = self.processor.tokenizer
 
         self.model.eval()
-        print(f"=== INIT DEBUG: GUIActorModel created successfully ===")
 
     @property
     def needs_fields(self):
         """A dict mapping model-specific keys to sample field names."""
-        print(f"=== NEEDS_FIELDS DEBUG: Getting fields: {self._fields} ===")
         return self._fields
 
     @needs_fields.setter
     def needs_fields(self, fields):
-        print(f"=== NEEDS_FIELDS DEBUG: Setting fields to: {fields} ===")
         self._fields = fields
     
     def _get_field(self):
-        print(f"=== GET_FIELD DEBUG: Current needs_fields: {self.needs_fields} ===")
         if "prompt_field" in self.needs_fields:
             prompt_field = self.needs_fields["prompt_field"]
-            print(f"=== GET_FIELD DEBUG: Found prompt_field: {prompt_field} ===")
         else:
             prompt_field = next(iter(self.needs_fields.values()), None)
-            print(f"=== GET_FIELD DEBUG: Using first field: {prompt_field} ===")
 
         return prompt_field
 
@@ -118,7 +111,6 @@ class GUIActorModel(SamplesMixin, Model):
             image: Original PIL Image
             sample: FiftyOne sample containing filepath information
         """
-        print(f"=== HEATMAP DEBUG: Saving heatmap for {sample.filepath if sample else 'no sample'} ===")
         if not pred.get("attn_scores") or not pred.get("n_height") or not pred.get("n_width"):
             logger.warning("Missing attention data, skipping heatmap generation")
             return
@@ -155,11 +147,9 @@ class GUIActorModel(SamplesMixin, Model):
             
             # Save heatmap
             colored_overlay.save(str(heatmap_path))
-            print(f"=== HEATMAP DEBUG: Saved attention heatmap to: {heatmap_path} ===")
             logger.info(f"Saved attention heatmap to: {heatmap_path}")
             
         except Exception as e:
-            print(f"=== HEATMAP DEBUG: Error saving heatmap: {e} ===")
             logger.error(f"Error saving attention heatmap: {e}")
 
     def _to_keypoints(self, pred: Dict[str, Any], image_width: int, image_height: int) -> fo.Keypoints:
@@ -173,7 +163,6 @@ class GUIActorModel(SamplesMixin, Model):
         Returns:
             fo.Keypoints: FiftyOne Keypoints object containing the top interaction point
         """
-        print(f"=== KEYPOINTS DEBUG: Converting predictions to keypoints ===")
         keypoints = []
         
         # Extract main interaction points and confidence scores
@@ -181,12 +170,7 @@ class GUIActorModel(SamplesMixin, Model):
         topk_values = pred.get("topk_values", [])
         output_text = pred.get("output_text", "")
         
-        print(f"=== KEYPOINTS DEBUG: topk_points: {topk_points} ===")
-        print(f"=== KEYPOINTS DEBUG: topk_values: {topk_values} ===")
-        print(f"=== KEYPOINTS DEBUG: output_text: '{output_text[:50]}...' ===")
-        
         if not topk_points:
-            print(f"=== KEYPOINTS DEBUG: No topk_points found! ===")
             logger.warning("No topk_points found in prediction")
             return fo.Keypoints(keypoints=[])
         
@@ -195,14 +179,10 @@ class GUIActorModel(SamplesMixin, Model):
             point = topk_points[0]  # Get the highest confidence point
             confidence = topk_values[0] if topk_values else None
             
-            print(f"=== KEYPOINTS DEBUG: Processing point: {point}, confidence: {confidence} ===")
-            
             # Handle tuple format: topk_points contains tuples
             if isinstance(point, (tuple, list)) and len(point) >= 2:
                 x, y = point[0], point[1]
-                print(f"=== KEYPOINTS DEBUG: Extracted coordinates: ({x}, {y}) ===")
             else:
-                print(f"=== KEYPOINTS DEBUG: Unexpected point format: {point} ===")
                 logger.warning(f"Unexpected point format: {point}")
                 return fo.Keypoints(keypoints=[])
             
@@ -211,19 +191,16 @@ class GUIActorModel(SamplesMixin, Model):
                 label="top_interaction_point",
                 points=[[float(x), float(y)]],
                 reasoning=output_text,
-                confidence=[float(confidence)] if confidence is not None else None,  # List with one confidence value
+                confidence=[float(confidence)],  # List with one confidence value
             )
                 
             keypoints.append(keypoint)
-            print(f"=== KEYPOINTS DEBUG: Created keypoint at ({x:.3f}, {y:.3f}) with confidence {confidence} ===")
-            logger.info(f"Added top keypoint at ({x:.3f}, {y:.3f}) with confidence {confidence:.3f if confidence else 'None'}")
+            logger.info(f"Added top keypoint at ({x:.3f}, {y:.3f}) with confidence {confidence:.3f}")
                             
         except Exception as e:
-            print(f"=== KEYPOINTS DEBUG: Error processing point: {e} ===")
             logger.error(f"Error processing top interaction point: {e}")
             return fo.Keypoints(keypoints=[])
         
-        print(f"=== KEYPOINTS DEBUG: Returning {len(keypoints)} keypoints ===")
         return fo.Keypoints(keypoints=keypoints)
     
     def _predict(self, image: Image.Image, sample=None) -> fo.Keypoints:
@@ -236,26 +213,13 @@ class GUIActorModel(SamplesMixin, Model):
         Returns:
             fo.Keypoints: Keypoint predictions for GUI interaction points
         """
-        print(f"\n=== PREDICT DEBUG START ===")
-        print(f"Sample filepath: {sample.filepath if sample else 'No sample'}")
-        print(f"Image size: {image.size}")
-        print(f"Instance prompt (self.prompt): '{self.prompt}'")
-        
         # Use local prompt variable instead of modifying self.prompt
         prompt = self.prompt  # Start with instance default
-        print(f"Initial local prompt: '{prompt}'")
         
         if sample is not None and self._get_field() is not None:
-            field_name = self._get_field()
-            print(f"Looking for field: '{field_name}'")
-            field_value = sample.get_field(field_name)
-            print(f"Field value from sample: '{field_value}'")
+            field_value = sample.get_field(self._get_field())
             if field_value is not None:
                 prompt = str(field_value)  # Local variable, doesn't affect instance
-                print(f"Updated local prompt to: '{prompt}'")
-        
-        print(f"Final prompt being used: '{prompt}'")
-        print(f"Instance prompt after processing: '{self.prompt}' (should be unchanged)")
         
         if not prompt:
             raise ValueError("No prompt provided.")
@@ -271,13 +235,7 @@ class GUIActorModel(SamplesMixin, Model):
             }
         ]
 
-        print(f"Messages being sent to inference:")
-        print(f"  System: {DEFAULT_SYSTEM_PROMPT[:50]}...")
-        print(f"  User text: '{prompt}'")
-        print(f"  User image: {sample.filepath if sample else 'PIL Image object'}")
-
         # Run inference
-        print("Calling inference...")
         pred = inference(
             messages, 
             self.model, 
@@ -287,21 +245,11 @@ class GUIActorModel(SamplesMixin, Model):
             topk=3
         )
 
-        print(f"Inference completed. Prediction keys: {list(pred.keys())}")
-        print(f"Has topk_points: {bool(pred.get('topk_points'))}")
-        print(f"topk_points: {pred.get('topk_points')}")
-        print(f"topk_values: {pred.get('topk_values')}")
-        print(f"Output text: '{pred.get('output_text', '')[:100]}...'")
-
         # Save attention heatmap as side effect
         self._save_attention_heatmap(pred, image, sample)
         
         # Convert predictions to keypoints and return
-        keypoints = self._to_keypoints(pred, image.width, image.height)
-        print(f"Generated {len(keypoints.keypoints) if keypoints else 0} keypoints")
-        print(f"=== PREDICT DEBUG END ===\n")
-        
-        return keypoints
+        return self._to_keypoints(pred, image.width, image.height)
 
     def predict(self, image, sample=None):
         """Process an image with the model.
@@ -313,7 +261,6 @@ class GUIActorModel(SamplesMixin, Model):
         Returns:
             fo.Keypoints: Keypoint predictions for GUI interaction points
         """
-        print(f"=== PREDICT PUBLIC DEBUG: Called with image size {image.shape if hasattr(image, 'shape') else 'unknown'}, sample: {sample.filepath if sample else 'None'} ===")
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
         return self._predict(image, sample)
