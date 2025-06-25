@@ -22,7 +22,7 @@ from gui_actor.inference import inference
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SYSTEM_PROMPT = """"You are a GUI agent. You are given a task and a screenshot of the screen. You need to perform a series of pyautogui actions to complete the task."""
+DEFAULT_SYSTEM_PROMPT = """"You are a GUI agent. Given a screenshot of the current GUI and a human instruction, your task is to locate the screen element that corresponds to the instruction. You should output a PyAutoGUI action that performs a click on the correct position. To indicate the click location, we will use some special tokens, which is used to refer to a visual patch later. For example, you can output: pyautogui.click(<your_special_token_here>"""
 
 def get_device():
     if torch.cuda.is_available():
