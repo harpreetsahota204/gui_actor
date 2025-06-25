@@ -152,8 +152,6 @@ class GUIActorModel(SamplesMixin, Model):
         except Exception as e:
             logger.error(f"Error saving attention heatmap: {e}")
 
-
-
     def _to_keypoints(self, pred: Dict[str, Any], image_width: int, image_height: int) -> fo.Keypoints:
         """Convert model predictions to FiftyOne Keypoints.
         
@@ -167,18 +165,39 @@ class GUIActorModel(SamplesMixin, Model):
         """
         keypoints = []
         
+        # Debug logging
+        logger.info(f"Prediction keys: {list(pred.keys())}")
+        logger.info(f"topk_points type: {type(pred.get('topk_points'))}")
+        logger.info(f"topk_points content: {pred.get('topk_points')}")
+        logger.info(f"topk_values type: {type(pred.get('topk_values'))}")
+        logger.info(f"topk_values content: {pred.get('topk_values')}")
+        
         # Extract main interaction points and confidence scores
         topk_points = pred.get("topk_points", [])
         topk_values = pred.get("topk_values", [])
         topk_points_all = pred.get("topk_points_all", [])
         output_text = pred.get("output_text", "")
         
+        if not topk_points:
+            logger.warning("No topk_points found in prediction")
+            return fo.Keypoints(keypoints=[])
+        
+        logger.info(f"Processing {len(topk_points)} interaction points")
+        
         # Process primary interaction points
         for i, point in enumerate(topk_points):
             try:
-                # Points are already normalized [x, y] in range [0, 1]
-                x, y = point
+                logger.info(f"Processing point {i}: {point} (type: {type(point)})")
+                
+                # Handle tuple format: topk_points contains tuples
+                if isinstance(point, (tuple, list)) and len(point) >= 2:
+                    x, y = point[0], point[1]
+                else:
+                    logger.warning(f"Unexpected point format: {point}")
+                    continue
+                    
                 confidence = topk_values[i] if i < len(topk_values) else 0.0
+                logger.info(f"Point coordinates: ({x}, {y}), confidence: {confidence}")
                 
                 # Create primary interaction keypoint
                 keypoint = fo.Keypoint(
@@ -188,27 +207,37 @@ class GUIActorModel(SamplesMixin, Model):
                     reasoning=output_text if i == 0 else ""  # Add reasoning to first point only
                 )
                 keypoints.append(keypoint)
+                logger.info(f"Added keypoint: {keypoint.label}")
                 
                 # Add detailed region points if available
                 if i < len(topk_points_all):
                     region_points = topk_points_all[i]
-                    for j, detail_point in enumerate(region_points):
-                        try:
-                            detail_x, detail_y = detail_point
-                            detail_keypoint = fo.Keypoint(
-                                label=f"region_{i+1}_detail_{j+1}",
-                                points=[[float(detail_x), float(detail_y)]],
-                                confidence=float(confidence * 0.8),  # Slightly lower confidence for detail points
-                            )
-                            keypoints.append(detail_keypoint)
-                        except Exception as e:
-                            logger.debug(f"Error processing detail point {detail_point}: {e}")
-                            continue
+                    logger.info(f"Processing region points for point {i}: {region_points} (type: {type(region_points)})")
+                    
+                    # topk_points_all contains lists of lists
+                    if isinstance(region_points, list):
+                        for j, detail_point in enumerate(region_points):
+                            try:
+                                if isinstance(detail_point, (tuple, list)) and len(detail_point) >= 2:
+                                    detail_x, detail_y = detail_point[0], detail_point[1]
+                                    detail_keypoint = fo.Keypoint(
+                                        label=f"region_{i+1}_detail_{j+1}",
+                                        points=[[float(detail_x), float(detail_y)]],
+                                        confidence=float(confidence * 0.8),  # Slightly lower confidence for detail points
+                                    )
+                                    keypoints.append(detail_keypoint)
+                                    logger.info(f"Added detail keypoint: {detail_keypoint.label}")
+                                else:
+                                    logger.warning(f"Unexpected detail point format: {detail_point}")
+                            except Exception as e:
+                                logger.debug(f"Error processing detail point {detail_point}: {e}")
+                                continue
                             
             except Exception as e:
-                logger.debug(f"Error processing interaction point {point}: {e}")
+                logger.error(f"Error processing interaction point {point}: {e}")
                 continue
-                
+        
+        logger.info(f"Total keypoints created: {len(keypoints)}")        
         return fo.Keypoints(keypoints=keypoints)
     
     def _predict(self, image: Image.Image, sample=None) -> fo.Keypoints:
