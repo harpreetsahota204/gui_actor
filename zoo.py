@@ -213,6 +213,7 @@ class GUIActorModel(SamplesMixin, Model):
         Returns:
             fo.Keypoints: Keypoint predictions for GUI interaction points
         """
+        # Use local prompt variable instead of modifying self.prompt
         prompt = self.prompt  # Start with instance default
         
         if sample is not None and self._get_field() is not None:
@@ -222,14 +223,13 @@ class GUIActorModel(SamplesMixin, Model):
         
         if not prompt:
             raise ValueError("No prompt provided.")
-
-        # Construct chat messages
+        
         messages = [
             {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
             {
-                "role": "user",
+                "role": "user", 
                 "content": [
-                    {"type": "text", "text": self.prompt},
+                    {"type": "text", "text": prompt},  # Use local prompt
                     {"image": sample.filepath if sample else image}
                 ]
             }
