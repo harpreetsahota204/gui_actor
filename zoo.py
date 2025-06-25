@@ -213,15 +213,15 @@ class GUIActorModel(SamplesMixin, Model):
         Returns:
             fo.Keypoints: Keypoint predictions for GUI interaction points
         """
-        # Get prompt from sample field if available
+        prompt = self.prompt  # Start with instance default
+        
         if sample is not None and self._get_field() is not None:
             field_value = sample.get_field(self._get_field())
             if field_value is not None:
-                self.prompt = str(field_value)
-
-        # Ensure we have a prompt
-        if not self.prompt:
-            raise ValueError("No prompt provided. Set prompt during initialization or via sample field.")
+                prompt = str(field_value)  # Local variable, doesn't affect instance
+        
+        if not prompt:
+            raise ValueError("No prompt provided.")
 
         # Construct chat messages
         messages = [
