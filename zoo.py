@@ -199,13 +199,16 @@ class GUIActorModel(SamplesMixin, Model):
                 confidence = topk_values[i] if i < len(topk_values) else 0.0
                 logger.info(f"Point coordinates: ({x}, {y}), confidence: {confidence}")
                 
-                # Create primary interaction keypoint
+                # Create primary interaction keypoint - confidence must be a list matching number of points
                 keypoint = fo.Keypoint(
                     label=f"interaction_point_{i+1}",
                     points=[[float(x), float(y)]],
-                    confidence=float(confidence),
-                    reasoning=output_text if i == 0 else ""  # Add reasoning to first point only
+                    confidence=[float(confidence)],  # List with one confidence value for one point
                 )
+                # Store additional metadata as custom attributes
+                if i == 0 and output_text:
+                    keypoint.reasoning = output_text
+                    
                 keypoints.append(keypoint)
                 logger.info(f"Added keypoint: {keypoint.label}")
                 
@@ -216,22 +219,31 @@ class GUIActorModel(SamplesMixin, Model):
                     
                     # topk_points_all contains lists of lists
                     if isinstance(region_points, list):
+                        # Collect all detail points and confidences for this region
+                        detail_points_list = []
+                        detail_confidence_list = []
+                        
                         for j, detail_point in enumerate(region_points):
                             try:
                                 if isinstance(detail_point, (tuple, list)) and len(detail_point) >= 2:
                                     detail_x, detail_y = detail_point[0], detail_point[1]
-                                    detail_keypoint = fo.Keypoint(
-                                        label=f"region_{i+1}_detail_{j+1}",
-                                        points=[[float(detail_x), float(detail_y)]],
-                                        confidence=float(confidence * 0.8),  # Slightly lower confidence for detail points
-                                    )
-                                    keypoints.append(detail_keypoint)
-                                    logger.info(f"Added detail keypoint: {detail_keypoint.label}")
+                                    detail_points_list.append([float(detail_x), float(detail_y)])
+                                    detail_confidence_list.append(float(confidence * 0.8))
                                 else:
                                     logger.warning(f"Unexpected detail point format: {detail_point}")
                             except Exception as e:
                                 logger.debug(f"Error processing detail point {detail_point}: {e}")
                                 continue
+                        
+                        # Create a single keypoint with multiple points for this region
+                        if detail_points_list:
+                            detail_keypoint = fo.Keypoint(
+                                label=f"region_{i+1}_details",
+                                points=detail_points_list,
+                                confidence=detail_confidence_list,  # List of confidences matching number of points
+                            )
+                            keypoints.append(detail_keypoint)
+                            logger.info(f"Added detail keypoint with {len(detail_points_list)} points: {detail_keypoint.label}")
                             
             except Exception as e:
                 logger.error(f"Error processing interaction point {point}: {e}")
