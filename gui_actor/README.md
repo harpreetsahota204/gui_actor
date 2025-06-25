@@ -2,6 +2,8 @@
 
 This folder contains the implementation code for integrating Microsoft's GUI-Actor models with FiftyOne.
 
+The original code resides here: https://github.com/microsoft/GUI-Actor/tree/main/src/gui_actor
+
 ## Files Overview
 
 - `modeling_qwen25vl.py` - Custom Qwen2.5-VL model with pointer generation capabilities
