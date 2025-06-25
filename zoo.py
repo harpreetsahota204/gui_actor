@@ -161,95 +161,46 @@ class GUIActorModel(SamplesMixin, Model):
             image_height: Original image height in pixels
             
         Returns:
-            fo.Keypoints: FiftyOne Keypoints object containing all interaction points
+            fo.Keypoints: FiftyOne Keypoints object containing the top interaction point
         """
         keypoints = []
-        
-        # Debug logging
-        logger.info(f"Prediction keys: {list(pred.keys())}")
-        logger.info(f"topk_points type: {type(pred.get('topk_points'))}")
-        logger.info(f"topk_points content: {pred.get('topk_points')}")
-        logger.info(f"topk_values type: {type(pred.get('topk_values'))}")
-        logger.info(f"topk_values content: {pred.get('topk_values')}")
         
         # Extract main interaction points and confidence scores
         topk_points = pred.get("topk_points", [])
         topk_values = pred.get("topk_values", [])
-        topk_points_all = pred.get("topk_points_all", [])
         output_text = pred.get("output_text", "")
         
         if not topk_points:
             logger.warning("No topk_points found in prediction")
             return fo.Keypoints(keypoints=[])
         
-        logger.info(f"Processing {len(topk_points)} interaction points")
-        
-        # Process primary interaction points
-        for i, point in enumerate(topk_points):
-            try:
-                logger.info(f"Processing point {i}: {point} (type: {type(point)})")
+        # Only process the top (first) prediction
+        try:
+            point = topk_points[0]  # Get the highest confidence point
+            confidence = topk_values[0] if topk_values else None
+            
+            # Handle tuple format: topk_points contains tuples
+            if isinstance(point, (tuple, list)) and len(point) >= 2:
+                x, y = point[0], point[1]
+            else:
+                logger.warning(f"Unexpected point format: {point}")
+                return fo.Keypoints(keypoints=[])
+            
+            # Create the top interaction keypoint
+            keypoint = fo.Keypoint(
+                label="top_interaction_point",
+                points=[[float(x), float(y)]],
+                reasoning=output_text,
+                confidence=[float(confidence)],  # List with one confidence value
+            )
                 
-                # Handle tuple format: topk_points contains tuples
-                if isinstance(point, (tuple, list)) and len(point) >= 2:
-                    x, y = point[0], point[1]
-                else:
-                    logger.warning(f"Unexpected point format: {point}")
-                    continue
-                    
-                confidence = topk_values[i] if i < len(topk_values) else 0.0
-                logger.info(f"Point coordinates: ({x}, {y}), confidence: {confidence}")
-                
-                # Create primary interaction keypoint - confidence must be a list matching number of points
-                keypoint = fo.Keypoint(
-                    label=f"interaction_point_{i+1}",
-                    points=[[float(x), float(y)]],
-                    confidence=[float(confidence)],  # List with one confidence value for one point
-                )
-                # Store additional metadata as custom attributes
-                if i == 0 and output_text:
-                    keypoint.reasoning = output_text
-                    
-                keypoints.append(keypoint)
-                logger.info(f"Added keypoint: {keypoint.label}")
-                
-                # Add detailed region points if available
-                if i < len(topk_points_all):
-                    region_points = topk_points_all[i]
-                    logger.info(f"Processing region points for point {i}: {region_points} (type: {type(region_points)})")
-                    
-                    # topk_points_all contains lists of lists
-                    if isinstance(region_points, list):
-                        # Collect all detail points and confidences for this region
-                        detail_points_list = []
-                        detail_confidence_list = []
-                        
-                        for j, detail_point in enumerate(region_points):
-                            try:
-                                if isinstance(detail_point, (tuple, list)) and len(detail_point) >= 2:
-                                    detail_x, detail_y = detail_point[0], detail_point[1]
-                                    detail_points_list.append([float(detail_x), float(detail_y)])
-                                    detail_confidence_list.append(float(confidence * 0.8))
-                                else:
-                                    logger.warning(f"Unexpected detail point format: {detail_point}")
-                            except Exception as e:
-                                logger.debug(f"Error processing detail point {detail_point}: {e}")
-                                continue
-                        
-                        # Create a single keypoint with multiple points for this region
-                        if detail_points_list:
-                            detail_keypoint = fo.Keypoint(
-                                label=f"region_{i+1}_details",
-                                points=detail_points_list,
-                                confidence=detail_confidence_list,  # List of confidences matching number of points
-                            )
-                            keypoints.append(detail_keypoint)
-                            logger.info(f"Added detail keypoint with {len(detail_points_list)} points: {detail_keypoint.label}")
+            keypoints.append(keypoint)
+            logger.info(f"Added top keypoint at ({x:.3f}, {y:.3f}) with confidence {confidence:.3f}")
                             
-            except Exception as e:
-                logger.error(f"Error processing interaction point {point}: {e}")
-                continue
+        except Exception as e:
+            logger.error(f"Error processing top interaction point: {e}")
+            return fo.Keypoints(keypoints=[])
         
-        logger.info(f"Total keypoints created: {len(keypoints)}")        
         return fo.Keypoints(keypoints=keypoints)
     
     def _predict(self, image: Image.Image, sample=None) -> fo.Keypoints:
