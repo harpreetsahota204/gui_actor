@@ -285,22 +285,23 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
         
         if inputs_embeds is None:
             inputs_embeds = self.model.get_input_embeddings()(input_ids) # shape: (batch_size, seq_len, d_model)
-        if inputs_embeds is None:
-            inputs_embeds = self.model.get_input_embeddings()(input_ids)
-            if pixel_values is not None:
-                # Use the new method and concatenation approach
-                image_embeds = self.get_image_features(pixel_values, image_grid_thw)
-                image_embeds = torch.cat(image_embeds, dim=0)  # This is crucial!
-                
-                n_image_tokens = (input_ids == self.config.image_token_id).sum()
-                n_image_features = image_embeds.shape[0]
-                    
-                mask = input_ids == self.config.image_token_id
-                mask_unsqueezed = mask.unsqueeze(-1)
-                mask_expanded = mask_unsqueezed.expand_as(inputs_embeds)
-                image_mask = mask_expanded.to(inputs_embeds.device)
-                image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
-                inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
+        if pixel_values is not None:
+            pixel_values = pixel_values.type(self.visual.dtype)
+            image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
+            n_image_tokens = (input_ids == self.config.image_token_id).sum().item()
+            n_image_features = image_embeds.shape[0]
+            if n_image_tokens != n_image_features:
+                raise ValueError(
+                    f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
+                )
+            image_mask = (
+                (input_ids == self.config.image_token_id)
+                .unsqueeze(-1)
+                .expand_as(inputs_embeds)
+                .to(inputs_embeds.device)
+            )
+            image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
+            inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
             if pixel_values_videos is not None:
                 pixel_values_videos = pixel_values_videos.type(self.visual.dtype)
