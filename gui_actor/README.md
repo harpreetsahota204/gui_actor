@@ -10,6 +10,8 @@ The original code resides here: https://github.com/microsoft/GUI-Actor/tree/main
 - `inference.py` - Inference pipeline and attention processing functions
 - `constants.py` - Model constants and configuration
 
+## Recent Updates & Compatibility Fixes
+
 ### Transformers Library Compatibility
 
 This implementation has been updated to work with newer versions of the Hugging Face Transformers library. Key changes include:
@@ -44,6 +46,29 @@ embeddings = self.model.get_input_embeddings()(input_ids)
 - Cleaned up debug prints that used `rank0_print`
 - Simplified code paths for inference-only usage
 
+### FiftyOne Integration Fixes
+
+#### 4. LogitsProcessor State Isolation
+**Issue**: The `ForceFollowTokensLogitsProcessor` maintains internal state (`self.force_queue`) that persists between inference calls, potentially causing token generation from one sample to affect the next.
+
+**Solution**: Reset processor state for each inference call and fix mutable default arguments.
+
+```python
+# In inference function - reset state for each call
+if logits_processor is None:
+    logits_processor = ForceFollowTokensLogitsProcessor(...)
+logits_processor.force_queue = []  # Reset state
+
+# In LogitsProcessor class - fix mutable default
+def __init__(self, token_a_id, forced_sequence=None):
+    if forced_sequence is None:
+        forced_sequence = [DEFAULT_POINTER_PAD_TOKEN, DEFAULT_POINTER_END_TOKEN]
+    self.forced_sequence = forced_sequence
+    self.force_queue = []
+```
+
+**Why this matters**: Stateful components can cause unexpected behavior when processing multiple samples, leading to inconsistent predictions and hard-to-debug issues.
+
 ## Key Lessons Learned
 
 ### 1. Method Inheritance in Custom Models
@@ -58,7 +83,49 @@ Using official APIs instead of direct attribute access ensures:
 - Proper error handling
 - Consistent behavior across model versions
 
-### 3. Code Maintenance Best Practices
+### 3. State Management in ML Pipelines
+When building model integrations:
+- **Avoid instance state modifications** during prediction
+- **Reset stateful components** between samples
+- **Use local variables** for sample-specific data
+- **Be mindful of mutable defaults** in class constructors
+
+### 4. Dataset Processing Considerations
+FiftyOne's flexible data model allows:
+- Multiple samples with the same image but different metadata
+- Batch processing that can expose state persistence issues
+- Field-based prompting that requires careful state management
+
+### 5. Code Maintenance Best Practices
 - Remove unused imports and training-specific code for inference deployments
 - Use official methods over internal attributes
 - Keep parent class functionality synchronized when copying methods
+- Test with realistic datasets that exercise edge cases
+
+## Installation Notes
+
+This implementation requires:
+- `transformers` >= 4.40.0 (for Qwen2.5-VL support)
+- `torch` >= 2.0.0
+- `PIL`, `numpy`, `cv2` for image processing
+- `fiftyone` for dataset integration
+
+## Testing Recommendations
+
+When working with this code:
+
+1. **Test with multiple samples per image** to verify prompt isolation
+2. **Process samples in different orders** to check for state persistence issues
+3. **Use varied prompts and instructions** to ensure proper field handling
+4. **Monitor memory usage** during batch processing
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Cross-sample contamination**: Check for instance state modifications in prediction methods
+2. **Inconsistent predictions**: Look for stateful components that aren't being reset
+3. **Memory leaks**: Ensure temporary variables are properly scoped
+4. **Field access errors**: Verify that sample fields exist and contain expected data types
+
+This implementation prioritizes reliability, state isolation, and compatibility while maintaining the full functionality of the GUI-Actor model for FiftyOne integration.
