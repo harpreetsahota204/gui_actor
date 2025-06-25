@@ -116,6 +116,10 @@ predictions = dataset.apply_model(model, label_field="custom_predictions")
 - Supports multiple candidate region detection
 - Implements specialized pointer tokens for coordinate generation
 
+## License
+
+This integration is licensed under the Apache 2.0 License. The GUI-Actor models are licensed under the MIT License.
+
 # Citation
 
 ```bibtex
