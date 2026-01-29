@@ -14,6 +14,8 @@ The original code resides here: https://github.com/microsoft/GUI-Actor/tree/main
 
 ### Transformers Library Compatibility
 
+Note: you will need to have transformers<5.0 installed
+
 This implementation has been updated to work with newer versions of the Hugging Face Transformers library. Key changes include:
 
 #### 1. Position Encoding Fix

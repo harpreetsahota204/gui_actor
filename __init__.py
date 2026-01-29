@@ -1,5 +1,11 @@
 import logging
 import os
+import sys
+
+# Add this directory to sys.path so that 'gui_actor' submodule can be imported
+_this_dir = os.path.dirname(os.path.abspath(__file__))
+if _this_dir not in sys.path:
+    sys.path.insert(0, _this_dir)
 
 from huggingface_hub import snapshot_download
 from fiftyone.operators import types
