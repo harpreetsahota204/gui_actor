@@ -156,7 +156,7 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initialize pointer head for multi-patch attention
-        self.multi_patch_pointer_head = VisionHead_MultiPatch(self.config.text_config.hidden_size, self.config.text_config.hidden_size)
+        self.multi_patch_pointer_head = VisionHead_MultiPatch(self.config.hidden_size, self.config.hidden_size)
         # Get loss weights from kwargs or use defaults
         self.pointer_loss_weight = kwargs.get("pointer_loss_weight", 1.0)
         self.lm_loss_weight = kwargs.get("lm_loss_weight", 1.0)
