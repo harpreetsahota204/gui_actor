@@ -1,11 +1,7 @@
 import os
 import logging
-import json
 from PIL import Image
-from typing import Dict, Any, List, Union, Optional
-import cv2
-from pathlib import Path
-import matplotlib.pyplot as plt
+from typing import Dict, Any, Optional
 
 import numpy as np
 import torch
@@ -101,56 +97,39 @@ class GUIActorModel(SamplesMixin, Model):
     def media_type(self):
         return "image"
 
-    def _save_attention_heatmap(self, pred: Dict[str, Any], image: Image.Image, sample=None):
-        """Save attention heatmap as PNG alongside the original image.
+    def _compute_attention_heatmap(self, pred: Dict[str, Any], image: Image.Image) -> Optional[fo.Heatmap]:
+        """Compute attention heatmap as a FiftyOne Heatmap label.
         
-        Uses the same visualization approach as described in the GUI-Actor paper.
+        Stores the heatmap at native attention map resolution to avoid MongoDB
+        document size limits. FiftyOne handles resizing for visualization.
         
         Args:
             pred: Model prediction dictionary containing attention scores and dimensions
             image: Original PIL Image
-            sample: FiftyOne sample containing filepath information
+            
+        Returns:
+            fo.Heatmap: Heatmap label with normalized attention scores, or None if data missing
         """
         if not pred.get("attn_scores") or not pred.get("n_height") or not pred.get("n_width"):
             logger.warning("Missing attention data, skipping heatmap generation")
-            return
+            return None
             
         try:
-            # Extract dimensions
-            width, height = image.size
             W, H = pred["n_width"], pred["n_height"]  # attention map size
             
             # Reshape attention scores to 2D grid (following paper's approach)
             scores = np.array(pred["attn_scores"][0]).reshape(H, W)
             
-            # Normalize the attention weights for coherent visualization
+            # Normalize the attention weights to [0, 1] range
             scores_norm = (scores - scores.min()) / (scores.max() - scores.min())
             
-            # Resize the attention map to match the image size using PIL BILINEAR
-            score_map = Image.fromarray((scores_norm * 255).astype(np.uint8)).resize(
-                (width, height), resample=Image.BILINEAR
-            )
-            
-            # Apply jet colormap (following paper's approach)
-            colormap = plt.get_cmap('jet')
-            colored_score_map = colormap(np.array(score_map) / 255.0)  # returns RGBA
-            colored_score_map = (colored_score_map[:, :, :3] * 255).astype(np.uint8)  # Remove alpha, convert to uint8
-            colored_overlay = Image.fromarray(colored_score_map)
-            
-            # Generate filename
-            if sample and sample.filepath:
-                original_path = Path(sample.filepath)
-                heatmap_path = original_path.parent / f"{original_path.stem}_attention.png"
-            else:
-                # Fallback if no sample filepath
-                heatmap_path = Path("attention_heatmap.png")
-            
-            # Save heatmap
-            colored_overlay.save(str(heatmap_path))
-            logger.info(f"Saved attention heatmap to: {heatmap_path}")
+            # Return as FiftyOne Heatmap label at native resolution
+            # FiftyOne will handle resizing for visualization
+            return fo.Heatmap(map=scores_norm.astype(np.float32))
             
         except Exception as e:
-            logger.error(f"Error saving attention heatmap: {e}")
+            logger.error(f"Error computing attention heatmap: {e}")
+            return None
 
     def _to_keypoints(self, pred: Dict[str, Any], image_width: int, image_height: int) -> fo.Keypoints:
         """Convert model predictions to FiftyOne Keypoints.
@@ -259,8 +238,12 @@ class GUIActorModel(SamplesMixin, Model):
             topk=3
         )
 
-        # Save attention heatmap as side effect
-        self._save_attention_heatmap(pred, image, sample)
+        # Compute and store heatmap on the sample
+        if sample is not None:
+            heatmap = self._compute_attention_heatmap(pred, image)
+            if heatmap is not None:
+                sample["gui_actor_heatmap"] = heatmap
+                sample.save()
         
         # Convert predictions to keypoints and return
         return self._to_keypoints(pred, image.width, image.height)

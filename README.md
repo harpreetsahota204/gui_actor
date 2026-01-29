@@ -16,7 +16,7 @@ GUI-Actor is a multimodal foundation model designed for GUI automation tasks. Th
 ## Features
 
 - **Keypoint Detection**: Identifies optimal interaction points for GUI automation
-- **Attention Visualization**: Generates heatmaps showing model attention patterns
+- **Attention Heatmaps**: Automatically stores attention maps on samples for visualization
 - **Multiple Model Sizes**: Support for both 3B and 7B parameter variants
 - **Flexible Prompting**: Use custom prompts or dataset instruction fields
 - **Seamless Integration**: Works with FiftyOne's dataset management and visualization
@@ -39,7 +39,6 @@ from fiftyone.utils.huggingface import load_from_hub
 # Load a GUI dataset
 dataset = load_from_hub("Voxel51/ScreenSpot-v2", shuffle=True)
 
-
 # Register the model source
 foz.register_zoo_model_source("https://github.com/harpreetsahota204/gui_actor")
 
@@ -47,21 +46,13 @@ foz.register_zoo_model_source("https://github.com/harpreetsahota204/gui_actor")
 model = foz.load_zoo_model("microsoft/GUI-Actor-7B-Qwen2.5-VL")
 
 # Apply model to dataset
+# Keypoints are stored in "guiactor_output"
+# Attention heatmaps are automatically stored in "gui_actor_heatmap"
 dataset.apply_model(
     model, 
     prompt_field="instruction",  # Use dataset's instruction field
     label_field="guiactor_output"
 )
-
-# Add attention heatmaps (saved as side effects during inference)
-from pathlib import Path
-for sample in dataset:
-    original_path = Path(sample.filepath)
-    heatmap_path = original_path.parent / f"{original_path.stem}_attention.png"
-    
-    if heatmap_path.exists():
-        sample["attention_heatmap"] = fo.Heatmap(map_path=str(heatmap_path))
-        sample.save()
 
 # Visualize results
 session = fo.launch_app(dataset)
@@ -76,11 +67,10 @@ session = fo.launch_app(dataset)
 
 ## Output Format
 
-The model returns structured predictions containing:
+The model stores two fields on each sample:
 
-- **Keypoints**: Interaction points with confidence scores
-- **Attention Heatmaps**: Visual attention maps saved as PNG files
-- **Text Output**: Model reasoning and explanations
+- **Keypoints** (`label_field`): Interaction points with confidence scores
+- **Attention Heatmap** (`gui_actor_heatmap`): Attention map stored as `fo.Heatmap`
 
 ### Keypoint Structure
 ```python
@@ -88,15 +78,15 @@ fo.Keypoint(
     label="top_interaction_point",
     points=[[x, y]],  # Normalized coordinates [0,1]
     confidence=[confidence_score],  # Model confidence
-    reasoning=<"the model's output text, may or may not be useful">  # Custom attribute
+    reasoning="the model's output text"  # Custom attribute
 )
 ```
 
-### Attention Heatmaps
-- Saved automatically as `{image_name}_attention.png`
-- Use jet colormap (blue=low attention, red=high attention)
-- Resized to match original image resolution
-- Applied using matplotlib's visualization pipeline
+### Attention Heatmap
+- Stored automatically as `gui_actor_heatmap` field on each sample
+- Contains normalized attention scores in `[0, 1]` range
+- Stored at native model resolution (FiftyOne handles resizing for visualization)
+- Visualize in the FiftyOne App as a heatmap overlay
 
 ## Advanced Usage
 
