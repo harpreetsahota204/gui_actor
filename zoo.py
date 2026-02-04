@@ -76,6 +76,16 @@ class GUIActorModel(SamplesMixin, Model):
 
         self.model.eval()
 
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *args):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+        return False
+
     @property
     def needs_fields(self):
         """A dict mapping model-specific keys to sample field names."""
